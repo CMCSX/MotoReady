@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="MotoReady - Check weather, configure gear, and remember your parking location. All offline.">
+    <meta name="theme-color" content="#ff5722">
+    <title>MotoReady - Motorcycle Rider PWA</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./public/manifest.json">
+    
+    <!-- Apple PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MotoReady">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Leaflet CSS (Maps) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="./src/css/styles.css?v=7">
+</head>
+<body>
+    <!-- Main Content Area -->
+    <div class="app-container">
+
+        <!-- Main Content -->
+        <main class="app-main">
+
+            <!-- Home / Weather & Gear Page -->
+            <div id="homePage" class="page-content active">
+                <div class="page-header">
+                    <div>
+                        <p class="page-eyebrow">MotoReady</p>
+                        <h2 class="page-title">Weather &amp; Gear</h2>
+                    </div>
+                    <div class="header-actions">
+                        <button id="manualLocationBtn" class="header-icon-btn" aria-label="Set location manually">
+                            <i class="fas fa-location-dot"></i>
+                        </button>
+                        <div id="offlineIndicator" style="display:none;">
+                            <span class="offline-badge">
+                                <i class="fas fa-wifi-slash"></i> Offline
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Location Search Bar -->
+                <div id="locationSearchBar" class="location-search-wrap" style="display: none;">
+                    <i class="fas fa-magnifying-glass search-bar-icon"></i>
+                    <input type="text" id="locationSearchInput" class="search-bar-input" placeholder="Search city (e.g. London, Tokyo)…">
+                    <button id="locationSearchSubmitBtn" class="search-bar-submit" aria-label="Search">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div id="weatherStatus" class="alert alert-info">
+                    <i class="fas fa-spinner fa-spin"></i> Detecting your location…
+                </div>
+
+                <div id="weatherWeatherData" style="display:none;" class="weather-container">
+
+                    <!-- Weather Card -->
+                    <div class="weather-card">
+                        <div class="weather-card-top">
+                            <div>
+                                <p class="weather-location-name" id="weatherLocation">--</p>
+                                <p class="weather-update-time" id="weatherUpdateTime"></p>
+                            </div>
+                            <button id="refreshWeatherBtn" aria-label="Refresh weather">
+                                <i class="fas fa-sync-alt" style="font-size:0.85rem;"></i>
+                            </button>
+                        </div>
+
+                        <div class="weather-card-body">
+                            <i id="weatherIcon" class="fas fa-cloud weather-icon-large"></i>
+                            <div class="temp-display">
+                                <span id="weatherTemp">--</span><span class="temp-unit">°C</span>
+                            </div>
+                            <p id="weatherDescription" class="weather-desc">--</p>
+                        </div>
+
+                        <div class="weather-stats">
+                            <div class="weather-stat">
+                                <span class="weather-stat-label"><i class="fas fa-wind"></i> Wind</span>
+                                <span class="weather-stat-value"><span id="weatherWind">--</span> <span class="weather-stat-unit">km/h</span></span>
+                            </div>
+                            <div class="weather-stat">
+                                <span class="weather-stat-label"><i class="fas fa-droplet"></i> Humidity</span>
+                                <span class="weather-stat-value"><span id="weatherHumidity">--</span><span class="weather-stat-unit">%</span></span>
+                            </div>
+                            <div class="weather-stat">
+                                <span class="weather-stat-label"><i class="fas fa-temperature-half"></i> Feels</span>
+                                <span class="weather-stat-value"><span id="weatherFeels">--</span><span class="weather-stat-unit">°C</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gear Recommendations -->
+                    <div class="gear-container">
+                        <p class="section-title"><i class="fas fa-shield-halved"></i> Recommended Gear</p>
+                        <div id="gearRecommendations" class="gear-list"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Parking Page -->
+            <div id="parkingPage" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <p class="page-eyebrow">MotoReady</p>
+                        <h2 class="page-title">Parking</h2>
+                    </div>
+                </div>
+
+                <ul class="nav nav-tabs mb-3" id="parkingTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="park-tab"
+                            data-bs-toggle="tab" data-bs-target="#parkTabContent"
+                            type="button" role="tab" aria-controls="parkTabContent" aria-selected="true">
+                            <i class="fas fa-map-pin me-1"></i> Park Here
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="find-tab"
+                            data-bs-toggle="tab" data-bs-target="#findTabContent"
+                            type="button" role="tab" aria-controls="findTabContent" aria-selected="false">
+                            <i class="fas fa-map me-1"></i> Find Bike
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="parkingTabsContent">
+
+                    <!-- Park My Bike -->
+                    <div class="tab-pane fade show active" id="parkTabContent" role="tabpanel" aria-labelledby="park-tab">
+                        <div class="mb-3">
+                            <label for="parkNotes" class="form-label">Notes</label>
+                            <textarea id="parkNotes" class="form-control" placeholder="e.g., Near the coffee shop, Level 2" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="parkPhoto" class="form-label">Photo <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;">(optional)</span></label>
+                            <input type="file" id="parkPhoto" class="form-control" accept="image/*" capture="environment">
+                            <div id="photoPreview" class="mt-2"></div>
+                        </div>
+
+                        <div id="parkStatus" class="alert alert-info" style="display:none;">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            <span id="parkStatusText">Getting location…</span>
+                        </div>
+
+                        <button id="captureLocationBtn" class="btn btn-primary w-100">
+                            <i class="fas fa-location-crosshairs me-2"></i> Capture Location
+                        </button>
+                        <button id="saveParkBtn" class="btn btn-success w-100 mt-2" style="display:none;">
+                            <i class="fas fa-floppy-disk me-2"></i> Save Parking Spot
+                        </button>
+
+                        <div class="location-info mt-3">
+                            <p class="mb-1" style="font-size:0.82rem;"><strong>Lat:</strong> <span id="parkLat" style="color:var(--text-muted);">Not captured</span></p>
+                            <p class="mb-1" style="font-size:0.82rem;"><strong>Lon:</strong> <span id="parkLon" style="color:var(--text-muted);">Not captured</span></p>
+                            <p class="mb-0" style="font-size:0.78rem;color:var(--text-muted);"><span id="parkTime"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Find My Bike -->
+                    <div class="tab-pane fade" id="findTabContent" role="tabpanel" aria-labelledby="find-tab">
+                        <div id="parkingMap" class="parking-map-container"></div>
+                        <div id="parkingList" class="parking-list"></div>
+                        <div id="noParking" class="alert alert-warning text-center" style="display:none;">
+                            <i class="fas fa-circle-info me-2"></i> No saved parking spots yet
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Full Map Page -->
+            <div id="mapPage" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <p class="page-eyebrow">MotoReady</p>
+                        <h2 class="page-title">Map</h2>
+                    </div>
+                    <button id="mapLocateBtn" class="map-locate-btn" aria-label="Center on my location">
+                        <i class="fas fa-location-crosshairs"></i>
+                    </button>
+                </div>
+
+                <!-- Search bar -->
+                <div class="map-search-wrap mb-3">
+                    <i class="fas fa-magnifying-glass map-search-icon"></i>
+                    <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search places, addresses…">
+                    <button id="mapSearchBtn" class="map-search-submit" aria-label="Search">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <!-- Category chips -->
+                <div class="map-chips mb-3">
+                    <button class="map-chip active" data-category="all"><i class="fas fa-layer-group"></i> All</button>
+                    <button class="map-chip" data-category="parking"><i class="fas fa-square-parking"></i> Parking</button>
+                    <button class="map-chip" data-category="fuel"><i class="fas fa-gas-pump"></i> Fuel</button>
+                    <button class="map-chip" data-category="food"><i class="fas fa-utensils"></i> Food</button>
+                    <button class="map-chip" data-category="repair"><i class="fas fa-wrench"></i> Repair</button>
+                </div>
+
+                <!-- Full map -->
+                <div id="fullMap" class="full-map-container"></div>
+
+                <!-- Nearby places list -->
+                <div class="map-nearby-section mt-3">
+                    <p class="section-title"><i class="fas fa-location-dot"></i> Nearby Places</p>
+                    <div id="nearbyPlacesList" class="nearby-list">
+                        <div class="nearby-placeholder">
+                            <i class="fas fa-map-location-dot"></i>
+                            <p>Allow location access to see nearby places</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tickets & Payment Page -->
+            <div id="ticketsPage" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <p class="page-eyebrow">MotoReady</p>
+                        <h2 class="page-title">Tickets &amp; Payment</h2>
+                    </div>
+                </div>
+
+                <!-- Active ticket banner -->
+                <div id="activeTicketBanner" class="active-ticket-banner mb-3" style="display:none;">
+                    <div class="ticket-timer-ring">
+                        <svg viewBox="0 0 80 80" class="timer-svg">
+                            <circle cx="40" cy="40" r="34" class="timer-track"/>
+                            <circle cx="40" cy="40" r="34" class="timer-progress" id="timerProgressCircle"/>
+                        </svg>
+                        <div class="timer-text" id="ticketTimerDisplay">--:--</div>
+                    </div>
+                    <div class="ticket-banner-info">
+                        <p class="ticket-banner-title" id="ticketBannerTitle">Active Parking</p>
+                        <p class="ticket-banner-sub" id="ticketBannerSub">Tap to view details</p>
+                        <span class="ticket-status-chip paid">Paid</span>
+                    </div>
+                    <button class="ticket-banner-arrow" id="viewActiveTicketBtn" aria-label="View ticket">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <ul class="nav nav-tabs mb-3" id="ticketTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="pay-tab"
+                            data-bs-toggle="tab" data-bs-target="#payTabContent"
+                            type="button" role="tab">
+                            <i class="fas fa-credit-card me-1"></i> Pay
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tickets-tab"
+                            data-bs-toggle="tab" data-bs-target="#ticketsTabContent"
+                            type="button" role="tab">
+                            <i class="fas fa-ticket me-1"></i> My Tickets
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="ticketTabsContent">
+
+                    <!-- Pay Tab -->
+                    <div class="tab-pane fade show active" id="payTabContent" role="tabpanel">
+
+                        <!-- Booking summary card -->
+                        <div class="booking-summary-card mb-3">
+                            <div class="booking-summary-header">
+                                <i class="fas fa-square-parking"></i>
+                                <div>
+                                    <p class="booking-lot-name" id="bookingLotName">Select a Parking Lot</p>
+                                    <p class="booking-lot-addr" id="bookingLotAddr">Choose from the Map page</p>
+                                </div>
+                            </div>
+                            <div class="booking-summary-row">
+                                <div class="booking-detail">
+                                    <span class="booking-detail-label">Date</span>
+                                    <span class="booking-detail-value" id="bookingDate">--</span>
+                                </div>
+                                <div class="booking-detail">
+                                    <span class="booking-detail-label">Duration</span>
+                                    <span class="booking-detail-value" id="bookingDuration">--</span>
+                                </div>
+                                <div class="booking-detail">
+                                    <span class="booking-detail-label">Amount</span>
+                                    <span class="booking-detail-value highlight" id="bookingAmount">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick booking form -->
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="fas fa-calendar-check me-2" style="color:var(--md-primary)"></i>Book a Spot</h6>
+                                <div class="mb-3">
+                                    <label class="form-label">Parking Lot</label>
+                                    <select id="lotSelect" class="form-control">
+                                        <option value="">— Choose a lot —</option>
+                                        <option value="lot-a">Lot A — Downtown Central ($2/hr)</option>
+                                        <option value="lot-b">Lot B — Riverside Plaza ($1.50/hr)</option>
+                                        <option value="lot-c">Lot C — Airport Express ($3/hr)</option>
+                                        <option value="lot-d">Lot D — Mall Parking ($1/hr)</option>
+                                    </select>
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label">Start Time</label>
+                                        <input type="time" id="startTime" class="form-control">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Duration (hrs)</label>
+                                        <select id="durationSelect" class="form-control">
+                                            <option value="1">1 hour</option>
+                                            <option value="2" selected>2 hours</option>
+                                            <option value="3">3 hours</option>
+                                            <option value="4">4 hours</option>
+                                            <option value="6">6 hours</option>
+                                            <option value="8">8 hours</option>
+                                            <option value="24">24 hours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Vehicle Number</label>
+                                    <input type="text" id="vehicleNumber" class="form-control" placeholder="e.g. AB 12 CD 3456" maxlength="15">
+                                </div>
+                                <button id="calculateBtn" class="btn btn-primary w-100">
+                                    <i class="fas fa-calculator me-2"></i> Calculate &amp; Proceed
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Payment method selector (shown after calculate) -->
+                        <div id="paymentSection" style="display:none;">
+                            <p class="section-title mb-3"><i class="fas fa-wallet"></i> Choose Payment Method</p>
+
+                            <div class="payment-methods mb-3">
+                                <button class="payment-method-btn active" data-method="card" id="methodCard">
+                                    <i class="fas fa-credit-card"></i>
+                                    <span>Card</span>
+                                </button>
+                                <button class="payment-method-btn" data-method="qr" id="methodQR">
+                                    <i class="fas fa-qrcode"></i>
+                                    <span>QR Code</span>
+                                </button>
+                                <button class="payment-method-btn" data-method="upi" id="methodUPI">
+                                    <i class="fas fa-mobile-screen-button"></i>
+                                    <span>UPI</span>
+                                </button>
+                            </div>
+
+                            <!-- Card Payment Form -->
+                            <div id="cardPaymentForm" class="payment-form-panel card mb-3">
+                                <div class="card-body">
+                                    <div class="credit-card-preview mb-3" id="cardPreview">
+                                        <div class="cc-chip"><i class="fas fa-microchip"></i></div>
+                                        <div class="cc-number" id="ccNumberDisplay">•••• •••• •••• ••••</div>
+                                        <div class="cc-bottom">
+                                            <div>
+                                                <p class="cc-label">Card Holder</p>
+                                                <p class="cc-value" id="ccNameDisplay">YOUR NAME</p>
+                                            </div>
+                                            <div>
+                                                <p class="cc-label">Expires</p>
+                                                <p class="cc-value" id="ccExpiryDisplay">MM/YY</p>
+                                            </div>
+                                            <i class="fab fa-cc-visa cc-brand" id="ccBrandIcon"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Card Number</label>
+                                        <input type="text" id="cardNumber" class="form-control" placeholder="1234 5678 9012 3456" maxlength="19" inputmode="numeric">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Cardholder Name</label>
+                                        <input type="text" id="cardName" class="form-control" placeholder="John Doe">
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label">Expiry</label>
+                                            <input type="text" id="cardExpiry" class="form-control" placeholder="MM/YY" maxlength="5" inputmode="numeric">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">CVV</label>
+                                            <input type="password" id="cardCVV" class="form-control" placeholder="•••" maxlength="4" inputmode="numeric">
+                                        </div>
+                                    </div>
+                                    <button id="payCardBtn" class="btn btn-primary w-100">
+                                        <i class="fas fa-lock me-2"></i> Pay <span id="cardPayAmount"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- QR Code Payment Panel -->
+                            <div id="qrPaymentForm" class="payment-form-panel card mb-3" style="display:none;">
+                                <div class="card-body text-center">
+                                    <p class="qr-instruction">Scan this QR code with your payment app</p>
+                                    <div class="qr-code-wrap" id="qrCodeWrap">
+                                        <div class="qr-placeholder">
+                                            <i class="fas fa-qrcode"></i>
+                                        </div>
+                                        <canvas id="qrCanvas" width="200" height="200" style="display:none;border-radius:12px;"></canvas>
+                                    </div>
+                                    <p class="qr-amount" id="qrAmountDisplay">$0.00</p>
+                                    <p class="qr-ref" id="qrRefDisplay">Ref: —</p>
+                                    <div class="qr-timer-bar mb-3">
+                                        <div class="qr-timer-fill" id="qrTimerFill"></div>
+                                    </div>
+                                    <p class="qr-expires-text" id="qrExpiresText">QR expires in <strong>5:00</strong></p>
+                                    <button id="refreshQRBtn" class="btn btn-outline-danger w-100 mt-2">
+                                        <i class="fas fa-rotate me-2"></i> Refresh QR
+                                    </button>
+                                    <button id="confirmQRPayBtn" class="btn btn-success w-100 mt-2">
+                                        <i class="fas fa-circle-check me-2"></i> I've Paid — Confirm
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- UPI Payment Panel -->
+                            <div id="upiPaymentForm" class="payment-form-panel card mb-3" style="display:none;">
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">UPI ID</label>
+                                        <input type="text" id="upiId" class="form-control" placeholder="yourname@upi">
+                                    </div>
+                                    <p class="upi-amount-display">Amount: <strong id="upiAmountDisplay">$0.00</strong></p>
+                                    <button id="payUPIBtn" class="btn btn-primary w-100">
+                                        <i class="fas fa-paper-plane me-2"></i> Send Payment Request
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- My Tickets Tab -->
+                    <div class="tab-pane fade" id="ticketsTabContent" role="tabpanel">
+                        <div id="ticketsList" class="tickets-list">
+                            <div class="no-tickets-placeholder" id="noTicketsMsg">
+                                <i class="fas fa-ticket-simple"></i>
+                                <p>No tickets yet</p>
+                                <p class="sub">Book a parking spot to get started</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settingsPage" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <p class="page-eyebrow">MotoReady</p>
+                        <h2 class="page-title">Settings</h2>
+                    </div>
+                </div>
+
+                <!-- Theme -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-palette me-2" style="color:var(--md-primary);"></i>Appearance</h6>
+                        <div class="settings-row">
+                            <div class="settings-row-label">
+                                <i class="fas fa-sun" style="color:#f59e0b;font-size:1.2rem;width:24px;text-align:center;"></i>
+                                <span>Dark Mode</span>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input type="checkbox" id="darkModeToggle" class="form-check-input" role="switch" style="width:2.8rem;height:1.5rem;cursor:pointer;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- About -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-circle-info me-2" style="color:var(--md-primary);"></i>About</h6>
+                        <div class="about-app-row">
+                            <div class="about-app-icon">
+                                <i class="fas fa-motorcycle"></i>
+                            </div>
+                            <div>
+                                <p class="about-app-name">MotoReady</p>
+                                <p class="about-app-version">Version 1.0 · PWA</p>
+                            </div>
+                        </div>
+                        <p style="font-size:0.875rem;color:var(--md-secondary-text);margin:0;">Your smart companion for motorcycle rides — weather, gear, and parking in one place.</p>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title" style="color:var(--md-error);"><i class="fas fa-triangle-exclamation me-2"></i>Danger Zone</h6>
+                        <button id="clearDataBtn" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-trash me-2"></i> Clear All Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+            <button class="nav-btn active" data-page="home" aria-label="Home">
+                <i class="fas fa-house"></i>
+                <span>Home</span>
+            </button>
+            <button class="nav-btn" data-page="parking" aria-label="Parking">
+                <i class="fas fa-map-pin"></i>
+                <span>Parking</span>
+            </button>
+            <button class="nav-btn" data-page="map" aria-label="Map">
+                <i class="fas fa-map"></i>
+                <span>Map</span>
+            </button>
+            <button class="nav-btn" data-page="tickets" aria-label="Tickets">
+                <i class="fas fa-ticket"></i>
+                <span>Tickets</span>
+            </button>
+            <button class="nav-btn" data-page="settings" aria-label="Settings">
+                <i class="fas fa-gear"></i>
+                <span>Settings</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Leaflet JS (Maps) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <!-- Application Modules -->
+    <script type="module" src="./src/js/app.js?v=6"></script>
+</body>
+</html>

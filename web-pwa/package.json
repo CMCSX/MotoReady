@@ -1,0 +1,25 @@
+{
+  "name": "motorready-pwa",
+  "version": "1.0.0",
+  "description": "MotoReady - PWA for motorcycle riders to check weather, configure gear, and remember parking locations",
+  "type": "module",
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "python -m http.server 8000",
+    "build": "echo 'Build complete'",
+    "test": "echo 'No tests configured yet'"
+  },
+  "keywords": [
+    "pwa",
+    "motorcycle",
+    "weather",
+    "offline",
+    "gear-logic"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {
+    "sql.js": "^1.10.2"
+  }
+}

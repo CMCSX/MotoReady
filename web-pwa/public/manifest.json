@@ -1,0 +1,36 @@
+{
+  "name": "MotoReady - Motorcycle Rider PWA",
+  "short_name": "MotoReady",
+  "description": "Check weather, configure gear, and remember your parking location - all offline",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5722",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["travel", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Weather & Gear",
+      "short_name": "Weather",
+      "description": "Check weather and get gear recommendations",
+      "url": "./index.html?tab=weather",
+      "icons": [{ "src": "./icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Park My Bike",
+      "short_name": "Park",
+      "description": "Save your bike's parking location",
+      "url": "./index.html?tab=park",
+      "icons": [{ "src": "./icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}
