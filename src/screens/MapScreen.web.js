@@ -16,6 +16,7 @@ export default function MapScreen({ isDarkMode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [nearbyPOIs, setNearbyPOIs] = useState([]);
+  const [poiCache, setPoiCache] = useState([]);
 
   const categories = ['All', 'Parking', 'Fuel', 'Food', 'Repair'];
 
@@ -24,8 +25,171 @@ export default function MapScreen({ isDarkMode }) {
   }, []);
 
   useEffect(() => {
-    generateNearbyPOIs();
-  }, [currentLoc, selectedCategory]);
+    fetchNearbyPOIs(currentLoc.latitude, currentLoc.longitude);
+  }, [currentLoc.latitude, currentLoc.longitude]);
+
+  useEffect(() => {
+    if (selectedCategory === 'All') {
+      setNearbyPOIs(poiCache);
+    } else {
+      setNearbyPOIs(poiCache.filter(p => p.category === selectedCategory));
+    }
+  }, [selectedCategory, poiCache]);
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Earth radius in meters
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const fetchNearbyPOIs = async (lat, lon) => {
+    setLoading(true);
+    const radius = 2500; // 2.5km search radius
+    const query = `[out:json][timeout:15];
+(
+  node["amenity"="motorcycle_parking"](around:${radius},${lat},${lon});
+  node["amenity"="parking"](around:${radius},${lat},${lon});
+  node["amenity"="fuel"](around:${radius},${lat},${lon});
+  node["amenity"="restaurant"](around:${radius},${lat},${lon});
+  node["amenity"="cafe"](around:${radius},${lat},${lon});
+  node["shop"="motorcycle"](around:${radius},${lat},${lon});
+  node["shop"="car_repair"](around:${radius},${lat},${lon});
+);
+out body 30;`;
+
+    try {
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      const data = await response.json();
+      if (data && data.elements && data.elements.length > 0) {
+        const parsed = data.elements.map((el, idx) => {
+          let category = 'Parking';
+          let icon = 'square-parking';
+          let color = '#2E7D32';
+
+          if (el.tags.amenity === 'fuel') {
+            category = 'Fuel';
+            icon = 'gas-pump';
+            color = '#BA1A1A';
+          } else if (['restaurant', 'cafe', 'fast_food', 'bar'].includes(el.tags.amenity)) {
+            category = 'Food';
+            icon = 'utensils';
+            color = '#1A237E';
+          } else if (el.tags.shop === 'motorcycle' || el.tags.shop === 'car_repair') {
+            category = 'Repair';
+            icon = 'wrench';
+            color = '#E67E22';
+          }
+
+          const dist = calculateDistance(lat, lon, el.lat, el.lon);
+          const ratingSeed = (el.id % 10) / 10;
+          const rating = (4.0 + ratingSeed * 1.0).toFixed(1);
+
+          return {
+            id: `osm_${el.id || idx}`,
+            name: el.tags.name || el.tags.brand || `${category} Service`,
+            category,
+            latitude: el.lat,
+            longitude: el.lon,
+            distance: dist < 1000 ? `${Math.round(dist)}m` : `${(dist / 1000).toFixed(1)}km`,
+            distVal: dist,
+            rating: parseFloat(rating),
+            icon,
+            color,
+          };
+        });
+
+        parsed.sort((a, b) => a.distVal - b.distVal);
+        setPoiCache(parsed);
+      } else {
+        generateFallbackPOIs(lat, lon);
+      }
+    } catch (err) {
+      console.warn("OSM Overpass query failed on web, using fallbacks:", err);
+      generateFallbackPOIs(lat, lon);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateFallbackPOIs = (lat, lon) => {
+    const fallbackList = [
+      {
+        id: 'poi_1',
+        name: 'MotoReady Safe Park',
+        category: 'Parking',
+        latitude: lat + 0.003,
+        longitude: lon + 0.002,
+        distance: '450m',
+        distVal: 450,
+        rating: 4.8,
+        icon: 'square-parking',
+        color: '#2E7D32',
+      },
+      {
+        id: 'poi_2',
+        name: 'RapidFix Moto Shop',
+        category: 'Repair',
+        latitude: lat - 0.004,
+        longitude: lon + 0.003,
+        distance: '620m',
+        distVal: 620,
+        rating: 4.9,
+        icon: 'wrench',
+        color: '#E67E22',
+      },
+      {
+        id: 'poi_3',
+        name: 'EcoFuel Station',
+        category: 'Fuel',
+        latitude: lat + 0.002,
+        longitude: lon - 0.004,
+        distance: '750m',
+        distVal: 750,
+        rating: 4.5,
+        icon: 'gas-pump',
+        color: '#BA1A1A',
+      },
+      {
+        id: 'poi_4',
+        name: 'Biker Bite Diner',
+        category: 'Food',
+        latitude: lat - 0.002,
+        longitude: lon - 0.001,
+        distance: '310m',
+        distVal: 310,
+        rating: 4.7,
+        icon: 'utensils',
+        color: '#1A237E',
+      },
+      {
+        id: 'poi_5',
+        name: 'Downtown Bike Parking',
+        category: 'Parking',
+        latitude: lat - 0.005,
+        longitude: lon - 0.003,
+        distance: '900m',
+        distVal: 900,
+        rating: 4.2,
+        icon: 'square-parking',
+        color: '#2E7D32',
+      }
+    ];
+    setPoiCache(fallbackList);
+  };
 
   const getUserLocation = async () => {
     setLoading(true);
@@ -39,7 +203,9 @@ export default function MapScreen({ isDarkMode }) {
             });
             setLoading(false);
           },
-          () => setLoading(false)
+          () => {
+            setLoading(false);
+          }
         );
       } else {
         setLoading(false);
@@ -70,75 +236,6 @@ export default function MapScreen({ isDarkMode }) {
       alert("Location search failed.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const generateNearbyPOIs = () => {
-    const lat = currentLoc.latitude;
-    const lon = currentLoc.longitude;
-
-    const allPOIs = [
-      {
-        id: 'poi_1',
-        name: 'MotoReady Safe Park',
-        category: 'Parking',
-        latitude: lat + 0.003,
-        longitude: lon + 0.002,
-        distance: '450m',
-        rating: 4.8,
-        icon: 'square-parking',
-        color: '#2E7D32',
-      },
-      {
-        id: 'poi_2',
-        name: 'RapidFix Moto Shop',
-        category: 'Repair',
-        latitude: lat - 0.004,
-        longitude: lon + 0.003,
-        distance: '620m',
-        rating: 4.9,
-        icon: 'wrench',
-        color: '#E67E22',
-      },
-      {
-        id: 'poi_3',
-        name: 'EcoFuel Station',
-        category: 'Fuel',
-        latitude: lat + 0.002,
-        longitude: lon - 0.004,
-        distance: '750m',
-        rating: 4.5,
-        icon: 'gas-pump',
-        color: '#BA1A1A',
-      },
-      {
-        id: 'poi_4',
-        name: 'Biker Bite Diner',
-        category: 'Food',
-        latitude: lat - 0.002,
-        longitude: lon - 0.001,
-        distance: '310m',
-        rating: 4.7,
-        icon: 'utensils',
-        color: '#1A237E',
-      },
-      {
-        id: 'poi_5',
-        name: 'Downtown Bike Parking',
-        category: 'Parking',
-        latitude: lat - 0.005,
-        longitude: lon - 0.003,
-        distance: '900m',
-        rating: 4.2,
-        icon: 'square-parking',
-        color: '#2E7D32',
-      }
-    ];
-
-    if (selectedCategory === 'All') {
-      setNearbyPOIs(allPOIs);
-    } else {
-      setNearbyPOIs(allPOIs.filter(p => p.category === selectedCategory));
     }
   };
 
@@ -229,7 +326,7 @@ export default function MapScreen({ isDarkMode }) {
       </View>
 
       {/* Nearby Places Section */}
-      <ScrollView contentContainerStyle={styles.nearbyContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.nearbyContainer} showsVerticalScrollIndicator={false}>
         <Text style={[styles.nearbyTitle, { color: colors.onSurface }]}>Nearby for Riders</Text>
         
         {nearbyPOIs.length === 0 ? (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -131,7 +132,7 @@ export default function ParkingScreen({ isDarkMode }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       
       {/* Custom Tab Switcher */}
       <View style={[styles.tabBar, { backgroundColor: colors.surfaceContainerHigh }]}>
@@ -339,7 +340,7 @@ export default function ParkingScreen({ isDarkMode }) {
         )}
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

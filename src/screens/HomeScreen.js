@@ -395,6 +395,7 @@ export default function HomeScreen({ isDarkMode, navigation }) {
       detailMapRef.current?.fitToCoordinates(ridePath, {
         edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
         animated: true,
+      });
     }, 400);
   };
 
@@ -964,12 +965,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   infoBannerTitle: {
-    fontSize: 13,
+    fontSize: theme.typography.sizes.bodyLarge,
     fontWeight: '700',
   },
   infoBannerDescription: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: theme.typography.sizes.bodyMedium,
+    lineHeight: 18,
   },
   infoBannerCloseBtn: {
     width: 44,
@@ -990,11 +991,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weatherDetailVal: {
-    fontSize: 14,
+    fontSize: theme.typography.sizes.bodyLarge,
     fontWeight: '700',
   },
   weatherDetailLbl: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
   },
   widgetDivider: {
@@ -1036,7 +1037,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   gearItemName: {
-    fontSize: 13,
+    fontSize: theme.typography.sizes.bodyLarge,
     fontWeight: '700',
   },
   priorityBadge: {
@@ -1045,12 +1046,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   priorityBadgeText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '800',
   },
   gearReasonText: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: theme.typography.sizes.bodyMedium,
+    lineHeight: 18,
   },
   consoleGrid: {
     flexDirection: 'column',
@@ -1080,7 +1081,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -1124,7 +1125,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.shapes.large,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: theme.typography.sizes.bodyMedium,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -1142,11 +1143,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   rideCardTitle: {
-    fontSize: 15,
+    fontSize: theme.typography.sizes.bodyLarge,
     fontWeight: '700',
   },
   rideCardDate: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
   deleteRideBtn: {
@@ -1168,7 +1169,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   miniStatLabel: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
   },
   modalOverlay: {
@@ -1250,11 +1251,11 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   detailModalTitle: {
-    fontSize: 16,
+    fontSize: theme.typography.sizes.titleMedium,
     fontWeight: '700',
   },
   detailModalSub: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
   closeModalBtn: {
@@ -1282,7 +1283,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   detailStatLabel: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 2,
   }
 });

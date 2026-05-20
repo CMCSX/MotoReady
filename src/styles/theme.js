@@ -1,4 +1,25 @@
 // Material Design 3 Styling Tokens for MotoReady
+import { Platform } from 'react-native';
+
+if (Platform.OS === 'web') {
+  // Load Google Font: DM Sans
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,100..1000;1,100..1000&display=swap';
+  document.head.appendChild(link);
+
+  // Inject a global stylesheet to apply DM Sans to all elements in the web app
+  // We exclude elements that explicitly set a custom font-family (like vector icons) in their inline style attribute.
+  const style = document.createElement('style');
+  style.type = 'text/css';
+  style.appendChild(document.createTextNode(`
+    *:not([style*="font-family"]):not([style*="FontAwesome"]):not([style*="Ionicons"]):not([style*="Material"]):not([style*="Entypo"]):not([style*="Feather"]):not([style*="Octicons"]):not([style*="SimpleLineIcons"]):not([style*="Zocial"]):not([style*="EvilIcons"]):not([style*="AntDesign"]):not([style*="Foundation"]):not([style*="Fontisto"]) {
+      font-family: 'DM Sans', sans-serif !important;
+    }
+  `));
+  document.head.appendChild(style);
+}
+
 export const theme = {
   light: {
     colors: {
@@ -130,7 +151,7 @@ export const theme = {
     full: 9999,
   },
   typography: {
-    fontFamily: 'System, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: Platform.OS === 'web' ? '"DM Sans", sans-serif' : 'System, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     sizes: {
       eyebrow: 12,
       bodySmall: 13,

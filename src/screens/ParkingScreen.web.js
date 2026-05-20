@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
-    marginTop: 48,
+    marginTop: 12,
   },
   eyebrow: {
     fontSize: theme.typography.sizes.eyebrow,

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View, Switch, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Switch, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { db } from '../modules/storage';
 import { theme } from '../styles/theme';
@@ -33,7 +34,7 @@ export default function SettingsScreen({ isDarkMode, onToggleDarkMode, onClearDa
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       
       {/* Header */}
       <View style={styles.header}>
@@ -100,7 +101,7 @@ export default function SettingsScreen({ isDarkMode, onToggleDarkMode, onClearDa
         </Text>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
-    marginTop: 48,
+    marginTop: Platform.OS === 'web' ? 12 : 0,
   },
   eyebrow: {
     fontSize: theme.typography.sizes.eyebrow,

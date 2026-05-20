@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../styles/theme';
@@ -12,15 +15,19 @@ export default function TicketsScreen({ isDarkMode }) {
   const [activeTicket, setActiveTicket] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0); // seconds remaining
 
-  // Booking Form State
+  // Camera permissions & scan state
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [scannedData, setScannedData] = useState(null); // { lot, basePrice }
+
+  // Booking Form & Payment state
   const [vehicleNo, setVehicleNo] = useState('');
   const [duration, setDuration] = useState('1'); // hours
-  const [selectedLot, setSelectedLot] = useState('Main Street Lot A');
   const [calculatedFare, setCalculatedFare] = useState(0);
   const [showPayment, setShowPayment] = useState(false);
-
-  // Payment State
   const [paymentMethod, setPaymentMethod] = useState('card'); // 'card', 'qr', 'upi'
+
+  // Card Form State
   const [cardNumber, setCardNumber] = useState('');
   const [cardName, setCardName] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -34,7 +41,7 @@ export default function TicketsScreen({ isDarkMode }) {
       vehicle: 'NY-8890-MC',
       timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       duration: 2,
-      cost: 4.00,
+      cost: 5.00,
       status: 'expired'
     },
     {
@@ -43,12 +50,12 @@ export default function TicketsScreen({ isDarkMode }) {
       vehicle: 'NY-8890-MC',
       timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       duration: 3,
-      cost: 6.00,
+      cost: 7.50,
       status: 'expired'
     }
   ]);
 
-  // Handle countdown timer for active ticket
+  // Countdowns
   useEffect(() => {
     let interval = null;
     if (activeTicket && timeLeft > 0) {
@@ -56,7 +63,6 @@ export default function TicketsScreen({ isDarkMode }) {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
-            // Expire ticket
             setActiveTicket((curr) => curr ? { ...curr, status: 'expired' } : null);
             return 0;
           }
@@ -69,33 +75,95 @@ export default function TicketsScreen({ isDarkMode }) {
     };
   }, [activeTicket, timeLeft]);
 
-  // Calculate fare dynamically
+  // Dynamic Fare calculation
   useEffect(() => {
     const hours = parseInt(duration) || 1;
-    setCalculatedFare(hours * 2.50); // $2.50 per hour
-  }, [duration]);
+    const base = scannedData ? scannedData.basePrice : 2.50;
+    setCalculatedFare(hours * base);
+  }, [duration, scannedData]);
 
-  const handleBookingSubmit = () => {
-    if (!vehicleNo.trim()) {
-      Alert.alert("Input Required", "Please enter your motorcycle vehicle number.");
-      return;
+  const handleBarCodeScanned = ({ type, data }) => {
+    if (scanned) return;
+    setScanned(true);
+
+    let lotName = "Main Street Lot A";
+    let basePrice = 2.50;
+
+    try {
+      if (data && data.startsWith('{')) {
+        const parsed = JSON.parse(data);
+        lotName = parsed.lot || lotName;
+        basePrice = parsed.price || basePrice;
+      } else if (data) {
+        lotName = data;
+      }
+    } catch (e) {
+      if (data) lotName = data;
     }
+
+    setScannedData({
+      lot: lotName,
+      basePrice: basePrice,
+    });
+    setShowPayment(true);
+    Alert.alert("Scan Successful", `Parking Lot: ${lotName}`);
+  };
+
+  const handleUploadQR = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Denied", "Library access permission is required.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const mockLot = "Grand Central Deck";
+        const mockPrice = 3.00;
+
+        setScanned(true);
+        setScannedData({
+          lot: mockLot,
+          basePrice: mockPrice,
+        });
+        setShowPayment(true);
+        Alert.alert("QR Code Uploaded", `Ticket detected!\nParking Lot: ${mockLot}`);
+      }
+    } catch (error) {
+      console.warn("Upload QR error:", error);
+      Alert.alert("Upload Error", "Could not load image.");
+    }
+  };
+
+  const handleSimulateScan = () => {
+    const mockLot = "Metro Plaza Lot B";
+    const mockPrice = 2.75;
+
+    setScanned(true);
+    setScannedData({
+      lot: mockLot,
+      basePrice: mockPrice,
+    });
     setShowPayment(true);
   };
 
-  const formatTime = (secs) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
-  };
-
   const handlePaymentConfirm = () => {
-    // Generate active ticket
+    if (!vehicleNo.trim()) {
+      Alert.alert("Input Required", "Please enter your vehicle number.");
+      return;
+    }
+
     const ticketId = `ticket_${Date.now()}`;
     const newTicket = {
       id: ticketId,
-      lot: selectedLot,
+      lot: scannedData ? scannedData.lot : 'Main Street Lot A',
       vehicle: vehicleNo.toUpperCase(),
       duration: parseInt(duration),
       cost: calculatedFare,
@@ -105,39 +173,113 @@ export default function TicketsScreen({ isDarkMode }) {
     };
 
     setActiveTicket(newTicket);
-    setTimeLeft(parseInt(duration) * 3600); // convert hours to seconds
-
-    // Add to history list (prepend)
+    setTimeLeft(parseInt(duration) * 3600);
     setHistory([newTicket, ...history]);
 
-    // Reset form states
+    // Clear form states
     setVehicleNo('');
     setDuration('1');
+    setScanned(false);
+    setScannedData(null);
     setShowPayment(false);
-    
+
     Alert.alert("Payment Successful", "Your parking ticket is now active!");
   };
 
+  const formatTime = (secs) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+  };
+
+  const renderScanner = () => {
+    if (!permission) {
+      return (
+        <View style={[styles.scannerPlaceholder, { backgroundColor: colors.surface }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (!permission.granted) {
+      return (
+        <View style={[styles.scannerPlaceholder, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+          <FontAwesome6 name="camera" size={32} color={colors.outline} style={{ marginBottom: 12 }} />
+          <Text style={[styles.placeholderTitle, { color: colors.onSurface }]}>Camera Access Required</Text>
+          <Text style={[styles.placeholderSubText, { color: colors.onSurfaceVariant }]}>Enable camera scanning to read tickets</Text>
+          
+          <TouchableOpacity style={[styles.permissionBtn, { backgroundColor: colors.primary }]} onPress={requestPermission}>
+            <Text style={styles.permissionBtnText}>Enable Camera</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.simulateBtn} onPress={handleSimulateScan}>
+            <FontAwesome6 name="circle-play" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={{ color: colors.primary, fontWeight: '700' }}>Simulate Scan (Demo)</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.scannerWrapper, { borderColor: colors.outlineVariant }]}>
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          barcodeScannerSettings={{
+            barcodeTypes: ["qr"],
+          }}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        />
+        
+        {/* Scanner Bounding Overlay */}
+        <View style={styles.scannerOverlay}>
+          <View style={[styles.scanTarget, { borderColor: colors.primary }]}>
+            <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.bottomRight, { borderColor: colors.primary }]} />
+          </View>
+        </View>
+
+        {/* Floating Upload QR button at bottom right */}
+        <TouchableOpacity 
+          style={[styles.uploadFab, { backgroundColor: colors.primary }]} 
+          onPress={handleUploadQR}
+          activeOpacity={0.8}
+        >
+          <FontAwesome6 name="image" size={18} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.eyebrow, { color: colors.primary }]}>MotoReady</Text>
+        <Text style={[styles.title, { color: colors.onSurface }]}>Book Parking Ticket</Text>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* Active Ticket Banner */}
         {activeTicket && activeTicket.status === 'active' && (
           <LinearGradient
-            colors={['#1A237E', '#283593']}
+            colors={['#1e3c72', '#2a5298']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.activeBanner, shadows.level2]}
           >
             <View style={styles.timerContainer}>
-              <View style={[styles.timerRing, { borderColor: timeLeft < 300 ? colors.error : '#FF8A50' }]}>
+              <View style={[styles.timerRing, { borderColor: timeLeft < 300 ? colors.error : '#00E5B0' }]}>
                 <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
               </View>
             </View>
             <View style={styles.bannerInfo}>
               <Text style={styles.bannerTitle}>{activeTicket.lot}</Text>
-              <Text style={styles.bannerSub}>{activeTicket.vehicle} • expires in {activeTicket.duration} hr</Text>
+              <Text style={styles.bannerSub}>{activeTicket.vehicle} • active ticket</Text>
               <View style={styles.badgeContainer}>
                 <View style={styles.activeBadge}>
                   <Text style={styles.activeBadgeText}>ACTIVE</Text>
@@ -147,65 +289,74 @@ export default function TicketsScreen({ isDarkMode }) {
           </LinearGradient>
         )}
 
-        {/* Quick Booking Form */}
-        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Book Parking Ticket</Text>
-        <View style={[styles.bookingCard, { backgroundColor: colors.surface }, shadows.level1]}>
-          <Text style={[styles.label, { color: colors.onSurface }]}>Select Parking Lot</Text>
-          <View style={[styles.selectBox, { borderColor: colors.outlineVariant, backgroundColor: colors.surfaceContainer }]}>
+        {/* Camera Scanner or Form Section */}
+        {!showPayment ? (
+          <View style={styles.sectionGroup}>
+            <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Scan Ticket QR Code</Text>
+            {renderScanner()}
+            
+            {/* If camera is allowed, we still show the option to simulate */}
+            {permission && permission.granted && (
+              <View style={styles.helperOptions}>
+                <TouchableOpacity style={[styles.simulateTextBtn, { backgroundColor: colors.surfaceContainer }]} onPress={handleSimulateScan}>
+                  <FontAwesome6 name="circle-play" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={{ color: colors.onSurface, fontWeight: '600', fontSize: 13 }}>Simulate QR Scan (Web/Demo)</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.bookingCard, { backgroundColor: colors.surface }, shadows.level1]}>
+            <View style={styles.scannedHeader}>
+              <FontAwesome6 name="circle-check" size={24} color={colors.success} style={{ marginRight: 8 }} />
+              <View>
+                <Text style={[styles.scannedLotTitle, { color: colors.onSurface }]}>{scannedData?.lot}</Text>
+                <Text style={[styles.scannedLotSub, { color: colors.onSurfaceVariant }]}>Scanned Parking Lot Info</Text>
+              </View>
+            </View>
+
+            <Text style={[styles.label, { color: colors.onSurface }]}>Motorcycle Plate Number</Text>
             <TextInput
-              style={{ color: colors.onSurface, padding: 12, fontSize: 16, fontFamily: theme.typography.fontFamily }}
-              value={selectedLot}
-              onChangeText={setSelectedLot}
-              placeholder="Lot name…"
+              style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface, backgroundColor: colors.surfaceContainer }]}
+              placeholder="e.g. NY-8890-MC"
+              placeholderTextColor={`${colors.onSurfaceVariant}aa`}
+              value={vehicleNo}
+              onChangeText={setVehicleNo}
+              autoCapitalize="characters"
             />
-          </View>
 
-          <Text style={[styles.label, { color: colors.onSurface }]}>Vehicle Number Plate</Text>
-          <TextInput
-            style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface, backgroundColor: colors.surfaceContainer }]}
-            placeholder="e.g. NY-8890-MC"
-            placeholderTextColor={`${colors.onSurfaceVariant}aa`}
-            value={vehicleNo}
-            onChangeText={setVehicleNo}
-            autoCapitalize="characters"
-          />
+            <Text style={[styles.label, { color: colors.onSurface }]}>Parking Duration</Text>
+            <View style={styles.durationRow}>
+              {['1', '2', '4', '8'].map((hr) => (
+                <TouchableOpacity
+                  key={hr}
+                  style={[
+                    styles.durationBtn, 
+                    { borderColor: colors.outline },
+                    duration === hr && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
+                  ]}
+                  onPress={() => setDuration(hr)}
+                >
+                  <Text style={[
+                    styles.durationBtnText, 
+                    { color: colors.onSurfaceVariant },
+                    duration === hr && { color: colors.onPrimaryContainer, fontWeight: '700' }
+                  ]}>
+                    {hr} hr{hr !== '1' && 's'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <Text style={[styles.label, { color: colors.onSurface }]}>Duration (Hours)</Text>
-          <View style={styles.durationRow}>
-            {['1', '2', '4', '8'].map((hr) => (
-              <TouchableOpacity
-                key={hr}
-                style={[
-                  styles.durationBtn, 
-                  { borderColor: colors.outline },
-                  duration === hr && { backgroundColor: colors.primaryContainer, borderColor: colors.primary }
-                ]}
-                onPress={() => setDuration(hr)}
-              >
-                <Text style={[
-                  styles.durationBtnText, 
-                  { color: colors.onSurfaceVariant },
-                  duration === hr && { color: colors.onPrimaryContainer, fontWeight: '700' }
-                ]}>
-                  {hr} hr{hr !== '1' && 's'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            {/* Price Info */}
+            <View style={[styles.summaryCard, { backgroundColor: colors.surfaceContainerHigh }]}>
+              <Text style={[styles.summaryLabel, { color: colors.onSurfaceVariant }]}>Total Fare</Text>
+              <Text style={[styles.summaryPrice, { color: colors.primary }]}>${calculatedFare.toFixed(2)}</Text>
+            </View>
 
-          {/* Price Summary */}
-          <View style={[styles.summaryCard, { backgroundColor: colors.surfaceContainerHigh }]}>
-            <Text style={[styles.summaryLabel, { color: colors.onSurfaceVariant }]}>Total Cost</Text>
-            <Text style={[styles.summaryPrice, { color: colors.primary }]}>${calculatedFare.toFixed(2)}</Text>
-          </View>
-
-          {!showPayment ? (
-            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={handleBookingSubmit}>
-              <Text style={styles.primaryBtnText}>Proceed to Payment</Text>
-            </TouchableOpacity>
-          ) : (
             <View style={styles.paymentSection}>
               <View style={styles.divider} />
+              <Text style={[styles.label, { color: colors.onSurface, marginTop: 0, marginBottom: 12 }]}>Choose Online Payment</Text>
               
               {/* Payment Methods */}
               <View style={styles.methodSelector}>
@@ -213,49 +364,28 @@ export default function TicketsScreen({ isDarkMode }) {
                   style={[styles.methodBtn, paymentMethod === 'card' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
                   onPress={() => setPaymentMethod('card')}
                 >
-                  <FontAwesome6 name="credit-card" size={16} color={paymentMethod === 'card' ? colors.primary : colors.onSurfaceVariant} />
+                  <FontAwesome6 name="credit-card" size={15} color={paymentMethod === 'card' ? colors.primary : colors.onSurfaceVariant} />
                   <Text style={[styles.methodText, { color: paymentMethod === 'card' ? colors.primary : colors.onSurfaceVariant }]}>Card</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.methodBtn, paymentMethod === 'qr' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
                   onPress={() => setPaymentMethod('qr')}
                 >
-                  <FontAwesome6 name="qrcode" size={16} color={paymentMethod === 'qr' ? colors.primary : colors.onSurfaceVariant} />
-                  <Text style={[styles.methodText, { color: paymentMethod === 'qr' ? colors.primary : colors.onSurfaceVariant }]}>QR Pay</Text>
+                  <FontAwesome6 name="qrcode" size={15} color={paymentMethod === 'qr' ? colors.primary : colors.onSurfaceVariant} />
+                  <Text style={[styles.methodText, { color: paymentMethod === 'qr' ? colors.primary : colors.onSurfaceVariant }]}>UPI QR</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={[styles.methodBtn, paymentMethod === 'upi' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
                   onPress={() => setPaymentMethod('upi')}
                 >
-                  <FontAwesome6 name="mobile-screen" size={16} color={paymentMethod === 'upi' ? colors.primary : colors.onSurfaceVariant} />
-                  <Text style={[styles.methodText, { color: paymentMethod === 'upi' ? colors.primary : colors.onSurfaceVariant }]}>UPI</Text>
+                  <FontAwesome6 name="mobile-screen" size={15} color={paymentMethod === 'upi' ? colors.primary : colors.onSurfaceVariant} />
+                  <Text style={[styles.methodText, { color: paymentMethod === 'upi' ? colors.primary : colors.onSurfaceVariant }]}>GPay/UPI</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Card Payment Form */}
+              {/* Card Form */}
               {paymentMethod === 'card' && (
                 <View style={styles.cardForm}>
-                  {/* Card Preview Mockup */}
-                  <LinearGradient
-                    colors={['#1e3c72', '#2a5298']}
-                    style={[styles.cardPreview, shadows.level2]}
-                  >
-                    <FontAwesome6 name="cc-visa" size={32} color="#FFF" style={styles.cardTypeIcon} />
-                    <Text style={styles.previewCardNum}>
-                      {cardNumber ? cardNumber.replace(/(\d{4})/g, '$1 ').trim() : '•••• •••• •••• ••••'}
-                    </Text>
-                    <View style={styles.cardPreviewBottom}>
-                      <View>
-                        <Text style={styles.previewLabel}>CARDHOLDER</Text>
-                        <Text style={styles.previewValue}>{cardName.toUpperCase() || 'YOUR NAME'}</Text>
-                      </View>
-                      <View>
-                        <Text style={styles.previewLabel}>EXPIRES</Text>
-                        <Text style={styles.previewValue}>{cardExpiry || 'MM/YY'}</Text>
-                      </View>
-                    </View>
-                  </LinearGradient>
-
                   <TextInput
                     style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface, backgroundColor: colors.surfaceContainer }]}
                     placeholder="Card Number"
@@ -270,7 +400,7 @@ export default function TicketsScreen({ isDarkMode }) {
                     value={cardName}
                     onChangeText={setCardName}
                   />
-                  <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
                     <TextInput
                       style={[styles.input, { flex: 1, borderColor: colors.outlineVariant, color: colors.onSurface, backgroundColor: colors.surfaceContainer }]}
                       placeholder="MM/YY"
@@ -291,24 +421,24 @@ export default function TicketsScreen({ isDarkMode }) {
                 </View>
               )}
 
-              {/* QR Code Mock */}
+              {/* UPI QR Code Pay */}
               {paymentMethod === 'qr' && (
-                <View style={styles.qrContainer}>
-                  <Text style={[styles.qrInfo, { color: colors.onSurfaceVariant }]}>
-                    Scan the QR code below to complete payment via your banking app.
+                <View style={styles.qrInfoContainer}>
+                  <Text style={[styles.qrInfoText, { color: colors.onSurfaceVariant }]}>
+                    Scan to pay dynamically using any banking apps.
                   </Text>
-                  <View style={[styles.qrBox, { backgroundColor: colors.surfaceContainer }]}>
-                    <FontAwesome6 name="qrcode" size={120} color={colors.onSurface} />
+                  <View style={[styles.qrCodeBox, { backgroundColor: colors.surfaceContainer }]}>
+                    <FontAwesome6 name="qrcode" size={110} color={colors.onSurface} />
                   </View>
-                  <Text style={[styles.qrTimer, { color: colors.error }]}>QR Code expires in 4:59</Text>
+                  <Text style={[styles.qrTimer, { color: colors.error }]}>Code expires in 04:59</Text>
                 </View>
               )}
 
-              {/* UPI Form */}
+              {/* UPI Direct Input */}
               {paymentMethod === 'upi' && (
                 <View style={styles.upiContainer}>
-                  <Text style={[styles.upiInfo, { color: colors.onSurfaceVariant }]}>
-                    Enter your Virtual Payment Address (VPA) / UPI ID.
+                  <Text style={[styles.upiInfoText, { color: colors.onSurfaceVariant }]}>
+                    Enter your Virtual Payment Address (VPA) or UPI ID.
                   </Text>
                   <TextInput
                     style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface, backgroundColor: colors.surfaceContainer }]}
@@ -318,17 +448,19 @@ export default function TicketsScreen({ isDarkMode }) {
                 </View>
               )}
 
+              {/* Confirm Pay Buttons */}
               <TouchableOpacity style={[styles.payConfirmBtn, { backgroundColor: colors.success }]} onPress={handlePaymentConfirm}>
-                <Text style={styles.payConfirmBtnText}>Confirm & Pay ${calculatedFare.toFixed(2)}</Text>
+                <Text style={styles.payConfirmBtnText}>Pay & Activate ${calculatedFare.toFixed(2)}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPayment(false)}>
-                <Text style={{ color: colors.error, fontWeight: '700', textAlign: 'center' }}>Cancel</Text>
+              
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowPayment(false); setScanned(false); setScannedData(null); }}>
+                <Text style={{ color: colors.error, fontWeight: '700', textAlign: 'center' }}>Cancel Scan</Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
+          </View>
+        )}
 
-        {/* History List */}
+        {/* Ticket History */}
         <Text style={[styles.sectionTitle, { color: colors.onSurface, marginTop: 24 }]}>Ticket History</Text>
         <View style={styles.historyList}>
           {history.map((t) => (
@@ -361,17 +493,288 @@ export default function TicketsScreen({ isDarkMode }) {
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
+  },
+  header: {
+    marginBottom: 24,
+    marginTop: Platform.OS === 'web' ? 12 : 0,
+  },
+  eyebrow: {
+    fontSize: theme.typography.sizes.eyebrow,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  title: {
+    fontSize: theme.typography.sizes.titleLarge,
+    fontWeight: '800',
+    marginTop: 2,
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 96,
+  },
+  sectionTitle: {
+    fontSize: theme.typography.sizes.titleMedium,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  sectionGroup: {
+    marginBottom: 16,
+  },
+  scannerPlaceholder: {
+    height: 260,
+    borderRadius: theme.shapes.large,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  placeholderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  placeholderSubText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  permissionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: theme.shapes.full,
+    marginBottom: 12,
+  },
+  permissionBtnText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  simulateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  scannerWrapper: {
+    height: 260,
+    borderRadius: theme.shapes.large,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  scanTarget: {
+    width: 160,
+    height: 160,
+    borderWidth: 2,
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
+  corner: {
+    width: 20,
+    height: 20,
+    position: 'absolute',
+    borderWidth: 3,
+  },
+  topLeft: {
+    top: -2,
+    left: -2,
+    borderBottomWidth: 0,
+    borderRightWidth: 0,
+  },
+  topRight: {
+    top: -2,
+    right: -2,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+  },
+  bottomLeft: {
+    bottom: -2,
+    left: -2,
+    borderTopWidth: 0,
+    borderRightWidth: 0,
+  },
+  bottomRight: {
+    bottom: -2,
+    right: -2,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+  },
+  uploadFab: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  helperOptions: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  simulateTextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: theme.shapes.full,
+  },
+  bookingCard: {
+    borderRadius: theme.shapes.large,
+    padding: 16,
+  },
+  scannedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  scannedLotTitle: {
+    fontSize: theme.typography.sizes.titleMedium,
+    fontWeight: '700',
+  },
+  scannedLotSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  label: {
+    fontSize: theme.typography.sizes.bodyMedium,
+    fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: theme.shapes.medium,
+    height: 48,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily,
+    marginBottom: 12,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  durationBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: theme.shapes.medium,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  durationBtnText: {
+    fontSize: theme.typography.sizes.bodyMedium,
+    fontWeight: '600',
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: theme.shapes.medium,
+    marginBottom: 16,
+  },
+  summaryLabel: {
+    fontSize: theme.typography.sizes.bodyLarge,
+    fontWeight: '600',
+  },
+  summaryPrice: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  paymentSection: {
+    marginTop: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginVertical: 16,
+  },
+  methodSelector: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  methodBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  methodText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cardForm: {
+    gap: 4,
+  },
+  qrInfoContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  qrInfoText: {
+    fontSize: theme.typography.sizes.bodySmall,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  qrCodeBox: {
+    padding: 16,
+    borderRadius: theme.shapes.medium,
+    marginBottom: 12,
+  },
+  qrTimer: {
+    fontSize: theme.typography.sizes.bodySmall,
+    fontWeight: '700',
+  },
+  upiContainer: {
+    paddingVertical: 8,
+  },
+  upiInfoText: {
+    fontSize: theme.typography.sizes.bodySmall,
+    marginBottom: 12,
+  },
+  payConfirmBtn: {
+    height: 52,
+    borderRadius: theme.shapes.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  payConfirmBtnText: {
+    color: '#FFF',
+    fontSize: theme.typography.sizes.bodyLarge,
+    fontWeight: '700',
+  },
+  cancelBtn: {
+    paddingVertical: 12,
+    marginTop: 8,
   },
   activeBanner: {
     borderRadius: theme.shapes.large,
@@ -429,186 +832,6 @@ const styles = StyleSheet.create({
     color: '#00E5B0',
     fontSize: 10,
     fontWeight: '700',
-  },
-  sectionTitle: {
-    fontSize: theme.typography.sizes.titleMedium,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  bookingCard: {
-    borderRadius: theme.shapes.large,
-    padding: 16,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: theme.typography.sizes.bodyMedium,
-    fontWeight: '700',
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  selectBox: {
-    borderWidth: 1,
-    borderRadius: theme.shapes.medium,
-    height: 48,
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: theme.shapes.medium,
-    height: 48,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    fontFamily: theme.typography.fontFamily,
-    marginBottom: 12,
-  },
-  durationRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  durationBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: theme.shapes.medium,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  durationBtnText: {
-    fontSize: theme.typography.sizes.bodyMedium,
-    fontWeight: '600',
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: theme.shapes.medium,
-    marginBottom: 16,
-  },
-  summaryLabel: {
-    fontSize: theme.typography.sizes.bodyLarge,
-    fontWeight: '600',
-  },
-  summaryPrice: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  primaryBtn: {
-    height: 52,
-    borderRadius: theme.shapes.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    color: '#FFF',
-    fontSize: theme.typography.sizes.bodyLarge,
-    fontWeight: '700',
-  },
-  paymentSection: {
-    marginTop: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginVertical: 16,
-  },
-  methodSelector: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  methodBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  methodText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cardForm: {
-    gap: 4,
-  },
-  cardPreview: {
-    height: 170,
-    borderRadius: theme.shapes.large,
-    padding: 20,
-    marginBottom: 16,
-    justifyContent: 'space-between',
-  },
-  cardTypeIcon: {
-    alignSelf: 'flex-end',
-  },
-  previewCardNum: {
-    color: '#FFF',
-    fontFamily: 'Courier New',
-    fontSize: 18,
-    letterSpacing: 2,
-    fontWeight: '700',
-    marginVertical: 16,
-  },
-  cardPreviewBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  previewLabel: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  previewValue: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  qrContainer: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  qrInfo: {
-    fontSize: theme.typography.sizes.bodySmall,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  qrBox: {
-    padding: 16,
-    borderRadius: theme.shapes.medium,
-    marginBottom: 12,
-  },
-  qrTimer: {
-    fontSize: theme.typography.sizes.bodySmall,
-    fontWeight: '700',
-  },
-  upiContainer: {
-    paddingVertical: 8,
-  },
-  upiInfo: {
-    fontSize: theme.typography.sizes.bodySmall,
-    marginBottom: 12,
-  },
-  payConfirmBtn: {
-    height: 52,
-    borderRadius: theme.shapes.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  payConfirmBtnText: {
-    color: '#FFF',
-    fontSize: theme.typography.sizes.bodyLarge,
-    fontWeight: '700',
-  },
-  cancelBtn: {
-    paddingVertical: 12,
-    marginTop: 8,
   },
   historyList: {
     gap: 12,
