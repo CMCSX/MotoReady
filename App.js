@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   tabBarContainer: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 36,
     left: 20,
     right: 20,
     height: 64,

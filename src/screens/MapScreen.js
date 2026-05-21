@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { weather } from '../modules/weather';
@@ -10,6 +11,7 @@ export default function MapScreen({ isDarkMode }) {
   const currentTheme = isDarkMode ? theme.dark : theme.light;
   const colors = currentTheme.colors;
   const shadows = currentTheme.shadows;
+  const insets = useSafeAreaInsets();
 
   const mapRef = useRef(null);
 
@@ -284,7 +286,7 @@ out body 30;`;
         </MapView>
 
         {/* Floating Search Bar */}
-        <View style={[styles.floatingSearch, shadows.level3, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+        <View style={[styles.floatingSearch, shadows.level3, { backgroundColor: colors.surface, borderColor: colors.outlineVariant, top: insets.top + 10 }]}>
           <FontAwesome6 name="magnifying-glass" size={18} color={colors.onSurfaceVariant} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.onSurface }]}

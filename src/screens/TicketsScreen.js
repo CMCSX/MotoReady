@@ -222,7 +222,7 @@ export default function TicketsScreen({ isDarkMode }) {
     }
 
     return (
-      <View style={[styles.scannerWrapper, { borderColor: colors.outlineVariant }]}>
+      <View style={styles.scannerWrapper}>
         <CameraView
           style={StyleSheet.absoluteFillObject}
           barcodeScannerSettings={{
@@ -233,7 +233,7 @@ export default function TicketsScreen({ isDarkMode }) {
         
         {/* Scanner Bounding Overlay */}
         <View style={styles.scannerOverlay}>
-          <View style={[styles.scanTarget, { borderColor: colors.primary }]}>
+          <View style={styles.scanTarget}>
             <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
             <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
             <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
@@ -569,7 +569,6 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: theme.shapes.large,
     overflow: 'hidden',
-    borderWidth: 1,
     position: 'relative',
   },
   scannerOverlay: {
@@ -581,7 +580,6 @@ const styles = StyleSheet.create({
   scanTarget: {
     width: 160,
     height: 160,
-    borderWidth: 2,
     position: 'relative',
     backgroundColor: 'transparent',
   },

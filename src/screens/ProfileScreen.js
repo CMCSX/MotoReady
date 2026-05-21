@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../modules/storage';
 import { theme } from '../styles/theme';
 
@@ -77,7 +78,7 @@ export default function ProfileScreen({ navigation, isDarkMode }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -211,7 +212,7 @@ export default function ProfileScreen({ navigation, isDarkMode }) {
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 44 : Platform.OS === 'android' ? 24 : 12,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   backBtn: {

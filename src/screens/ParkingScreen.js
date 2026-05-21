@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { db } from '../modules/storage';
@@ -170,7 +171,7 @@ export default function ParkingScreen({ isDarkMode }) {
             <Text style={[styles.label, { color: colors.onSurface }]}>Photo of Parking Spot</Text>
             {photoUri ? (
               <View style={styles.photoContainer}>
-                <Image source={{ uri: photoUri }} style={styles.photo} />
+                <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
                 <TouchableOpacity 
                   style={[styles.deletePhotoBtn, { backgroundColor: colors.error }]}
                   onPress={() => setPhotoUri(null)}
@@ -311,7 +312,7 @@ export default function ParkingScreen({ isDarkMode }) {
                       onPress={() => setSelectedSpotForMap(spot)}
                     >
                       {spot.photoData && (
-                        <Image source={{ uri: spot.photoData }} style={styles.spotPhoto} />
+                        <Image source={{ uri: spot.photoData }} style={styles.spotPhoto} contentFit="cover" />
                       )}
                       <View style={styles.spotInfo}>
                         <Text style={[styles.spotNotes, { color: colors.onSurface }]}>
@@ -372,8 +373,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 96,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 80,
   },
   tabContent: {
     flex: 1,
@@ -381,25 +383,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: theme.typography.sizes.titleLarge,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: theme.typography.sizes.bodyMedium,
-    marginBottom: 20,
-    lineHeight: 20,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   label: {
     fontSize: theme.typography.sizes.bodyLarge,
     fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 4,
   },
   photoContainer: {
     position: 'relative',
-    height: 180,
+    height: 140,
     borderRadius: theme.shapes.medium,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   photo: {
     width: '100%',
@@ -414,30 +416,32 @@ const styles = StyleSheet.create({
     borderRadius: theme.shapes.full,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+    elevation: 5,
   },
   photoPlaceholder: {
     borderWidth: 2,
     borderStyle: 'dashed',
     borderRadius: theme.shapes.medium,
-    height: 180,
+    height: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 10,
   },
   photoHint: {
     fontSize: theme.typography.sizes.bodySmall,
     textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 4,
+    marginBottom: 8,
   },
   photoActions: {
     flexDirection: 'row',
     gap: 12,
   },
   photoBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: theme.shapes.full,
   },
   textInput: {
@@ -446,8 +450,8 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: theme.typography.sizes.bodyLarge,
     textAlignVertical: 'top',
-    height: 90,
-    marginBottom: 16,
+    height: 72,
+    marginBottom: 10,
   },
   captureBtn: {
     flexDirection: 'row',
@@ -455,14 +459,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 48,
     borderRadius: theme.shapes.full,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   locationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: theme.shapes.medium,
-    marginBottom: 24,
+    marginBottom: 12,
   },
   locationCardIcon: {
     marginRight: 12,
@@ -488,7 +492,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.shapes.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 4,
   },
   saveBtnText: {
     fontSize: theme.typography.sizes.bodyLarge,

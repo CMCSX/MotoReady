@@ -1,11 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db as firestoreDb } from '../config/firebase';
-import { 
-  collection, doc, getDoc, setDoc, addDoc, getDocs, 
-  deleteDoc, query, orderBy 
-} from 'firebase/firestore';
 
 const WEATHER_KEY_PREFIX = 'motoready_weather_';
+const PARKING_KEY = 'motoready_parking_locations';
+const RIDES_KEY = 'motoready_rides';
+const PROFILE_KEY = 'motoready_profile';
 
 class MotoReadyStorage {
   // Temporary isolation key for database scoping. Easily upgradeable to Auth UID later!
@@ -18,7 +16,7 @@ class MotoReadyStorage {
    */
   async init() {
     try {
-      console.log('🔥 Cloud Firestore initialized with local persistent cache');
+      console.log('📦 Local storage (AsyncStorage) initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Storage initialization failed:', error);
@@ -27,15 +25,13 @@ class MotoReadyStorage {
   }
 
   /**
-   * Add parking location to Firestore
+   * Add parking location to AsyncStorage
    */
   async addParkingLocation(latitude, longitude, photoData = null, notes = '') {
     try {
-      const userId = this.getUserId();
-      const colRef = collection(firestoreDb, 'users', userId, 'parking_locations');
       const timestamp = new Date().toISOString();
-      
       const newParkingData = {
+        id: `parking_${Date.now()}`,
         type: 'parking',
         latitude,
         longitude,
@@ -44,59 +40,51 @@ class MotoReadyStorage {
         timestamp
       };
 
-      const docRef = await addDoc(colRef, newParkingData);
+      const existingDataStr = await AsyncStorage.getItem(PARKING_KEY);
+      const locations = existingDataStr ? JSON.parse(existingDataStr) : [];
+      locations.unshift(newParkingData); // Add to beginning
+      await AsyncStorage.setItem(PARKING_KEY, JSON.stringify(locations));
       
-      return {
-        id: docRef.id,
-        ...newParkingData
-      };
+      return newParkingData;
     } catch (error) {
-      console.error('Error saving parking location to Firestore:', error);
+      console.error('Error saving parking location to local storage:', error);
       throw error;
     }
   }
 
   /**
-   * Get all parking locations from Firestore
+   * Get all parking locations from AsyncStorage
    */
   async getParkingLocations() {
     try {
-      const userId = this.getUserId();
-      const colRef = collection(firestoreDb, 'users', userId, 'parking_locations');
-      const q = query(colRef, orderBy('timestamp', 'desc'));
-      const querySnapshot = await getDocs(q);
-      
-      const locations = [];
-      querySnapshot.forEach((doc) => {
-        locations.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
-      return locations;
+      const existingDataStr = await AsyncStorage.getItem(PARKING_KEY);
+      return existingDataStr ? JSON.parse(existingDataStr) : [];
     } catch (error) {
-      console.error('Error getting parking locations from Firestore:', error);
+      console.error('Error getting parking locations from local storage:', error);
       return [];
     }
   }
 
   /**
-   * Delete parking location from Firestore
+   * Delete parking location from AsyncStorage
    */
   async deleteParkingLocation(id) {
     try {
-      const userId = this.getUserId();
-      await deleteDoc(doc(firestoreDb, 'users', userId, 'parking_locations', id));
+      const existingDataStr = await AsyncStorage.getItem(PARKING_KEY);
+      if (!existingDataStr) return false;
+      
+      let locations = JSON.parse(existingDataStr);
+      locations = locations.filter(loc => loc.id !== id);
+      await AsyncStorage.setItem(PARKING_KEY, JSON.stringify(locations));
       return true;
     } catch (error) {
-      console.error('Error deleting parking location from Firestore:', error);
+      console.error('Error deleting parking location from local storage:', error);
       return false;
     }
   }
 
   /**
-   * Cache weather data locally (Kept on AsyncStorage to save database costs)
+   * Cache weather data locally
    */
   async cacheWeatherData(location, latitude, longitude, weatherData) {
     try {
@@ -126,7 +114,7 @@ class MotoReadyStorage {
   }
 
   /**
-   * Get latest cached weather (Kept on AsyncStorage to save database costs)
+   * Get latest cached weather
    */
   async getLatestWeather(location) {
     try {
@@ -150,15 +138,13 @@ class MotoReadyStorage {
   }
 
   /**
-   * Add a tracked ride to Firestore
+   * Add a tracked ride to AsyncStorage
    */
   async addRide(title, distance, duration, avgSpeed, path) {
     try {
-      const userId = this.getUserId();
-      const colRef = collection(firestoreDb, 'users', userId, 'rides');
       const timestamp = new Date().toISOString();
-      
       const newRideData = {
+        id: `ride_${Date.now()}`,
         type: 'ride',
         title: title || `Ride on ${new Date().toLocaleDateString()}`,
         distance: parseFloat(distance) || 0,
@@ -168,68 +154,57 @@ class MotoReadyStorage {
         timestamp
       };
 
-      const docRef = await addDoc(colRef, newRideData);
+      const existingDataStr = await AsyncStorage.getItem(RIDES_KEY);
+      const rides = existingDataStr ? JSON.parse(existingDataStr) : [];
+      rides.unshift(newRideData); // Add to beginning
+      await AsyncStorage.setItem(RIDES_KEY, JSON.stringify(rides));
       
-      return {
-        id: docRef.id,
-        ...newRideData
-      };
+      return newRideData;
     } catch (error) {
-      console.error('Error saving ride to Firestore:', error);
+      console.error('Error saving ride to local storage:', error);
       throw error;
     }
   }
 
   /**
-   * Get all tracked rides from Firestore
+   * Get all tracked rides from AsyncStorage
    */
   async getRides() {
     try {
-      const userId = this.getUserId();
-      const colRef = collection(firestoreDb, 'users', userId, 'rides');
-      const q = query(colRef, orderBy('timestamp', 'desc'));
-      const querySnapshot = await getDocs(q);
-      
-      const rides = [];
-      querySnapshot.forEach((doc) => {
-        rides.push({
-          id: doc.id,
-          ...doc.data()
-        });
-      });
-      
-      return rides;
+      const existingDataStr = await AsyncStorage.getItem(RIDES_KEY);
+      return existingDataStr ? JSON.parse(existingDataStr) : [];
     } catch (error) {
-      console.error('Error getting rides from Firestore:', error);
+      console.error('Error getting rides from local storage:', error);
       return [];
     }
   }
 
   /**
-   * Delete a ride from Firestore
+   * Delete a ride from AsyncStorage
    */
   async deleteRide(id) {
     try {
-      const userId = this.getUserId();
-      await deleteDoc(doc(firestoreDb, 'users', userId, 'rides', id));
+      const existingDataStr = await AsyncStorage.getItem(RIDES_KEY);
+      if (!existingDataStr) return false;
+      
+      let rides = JSON.parse(existingDataStr);
+      rides = rides.filter(ride => ride.id !== id);
+      await AsyncStorage.setItem(RIDES_KEY, JSON.stringify(rides));
       return true;
     } catch (error) {
-      console.error('Error deleting ride from Firestore:', error);
+      console.error('Error deleting ride from local storage:', error);
       return false;
     }
   }
 
   /**
-   * Get user profile from Firestore
+   * Get user profile from AsyncStorage
    */
   async getProfile() {
     try {
-      const userId = this.getUserId();
-      const docRef = doc(firestoreDb, 'users', userId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists() && docSnap.data().profile) {
-        return docSnap.data().profile;
+      const cachedProfile = await AsyncStorage.getItem(PROFILE_KEY);
+      if (cachedProfile) {
+        return JSON.parse(cachedProfile);
       }
       
       // Default profile fallback
@@ -244,57 +219,32 @@ class MotoReadyStorage {
         profileImage: null,
       };
     } catch (error) {
-      console.error('Error getting profile from Firestore:', error);
+      console.error('Error getting profile from local storage:', error);
       return null;
     }
   }
 
   /**
-   * Save user profile to Firestore
+   * Save user profile to AsyncStorage
    */
   async saveProfile(profileData) {
     try {
-      const userId = this.getUserId();
-      const docRef = doc(firestoreDb, 'users', userId);
-      
-      await setDoc(docRef, { profile: profileData }, { merge: true });
+      await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profileData));
       return true;
     } catch (error) {
-      console.error('Error saving profile to Firestore:', error);
+      console.error('Error saving profile to local storage:', error);
       return false;
     }
   }
 
   /**
-   * Clear all storage (Reset local settings/weather and Firestore records)
+   * Clear all storage (Reset local settings/weather/rides/parking)
    */
   async clearAllData() {
     try {
-      // 1. Clear local AsyncStorage
+      // Clear local AsyncStorage
       await AsyncStorage.clear();
-      console.log('✅ Local AsyncStorage cleared');
-
-      // 2. Fetch and delete all subcollection documents under this user in Firestore
-      const userId = this.getUserId();
-
-      // Clear parking locations
-      const parkingCol = collection(firestoreDb, 'users', userId, 'parking_locations');
-      const parkingSnap = await getDocs(parkingCol);
-      for (const d of parkingSnap.docs) {
-        await deleteDoc(doc(firestoreDb, 'users', userId, 'parking_locations', d.id));
-      }
-
-      // Clear rides
-      const ridesCol = collection(firestoreDb, 'users', userId, 'rides');
-      const ridesSnap = await getDocs(ridesCol);
-      for (const d of ridesSnap.docs) {
-        await deleteDoc(doc(firestoreDb, 'users', userId, 'rides', d.id));
-      }
-
-      // Delete main user profile document
-      await deleteDoc(doc(firestoreDb, 'users', userId));
-      
-      console.log('✅ Cloud Firestore storage cleared');
+      console.log('✅ Local storage cleared');
       return true;
     } catch (error) {
       console.error('Error clearing storage:', error);
@@ -304,4 +254,3 @@ class MotoReadyStorage {
 }
 
 export const db = new MotoReadyStorage();
-
